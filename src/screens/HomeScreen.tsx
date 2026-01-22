@@ -1,26 +1,43 @@
 import React from 'react';
-import { View, Text, Button, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView } from 'react-native';
 
-export const HomeScreen = ({ navigation }: any) => {
+export default function HomeScreen({ navigation }: any) {
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Home Screen</Text>
-      <Button
-        title="Go to Check-In"
-        onPress={() => navigation.navigate('Verification')}
-      />
-    </View>
+    <SafeAreaView style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.title}>OfficeFlow</Text>
+        <Text style={styles.subtitle}>Good Morning, Employee</Text>
+      </View>
+
+      <View style={styles.content}>
+        <TouchableOpacity 
+          style={styles.mainButton} 
+          onPress={() => navigation.navigate('Verification')}
+        >
+          <Text style={styles.buttonText}>Check-In Now</Text>
+        </TouchableOpacity>
+      </View>
+    </SafeAreaView>
   );
-};
+}
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
+  container: { flex: 1, backgroundColor: '#121212' },
+  header: { padding: 30, marginTop: 40 },
+  title: { fontSize: 32, fontWeight: 'bold', color: '#fff' },
+  subtitle: { fontSize: 18, color: '#aaa', marginTop: 5 },
+  content: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  mainButton: { 
+    width: 250, 
+    height: 250, 
+    borderRadius: 125, 
+    backgroundColor: '#007AFF', 
+    justifyContent: 'center', 
     alignItems: 'center',
-    justifyContent: 'center',
+    elevation: 10,
+    shadowColor: '#007AFF',
+    shadowOpacity: 0.5,
+    shadowRadius: 20
   },
-  title: {
-    fontSize: 24,
-    marginBottom: 20,
-  },
+  buttonText: { color: '#fff', fontSize: 20, fontWeight: 'bold' }
 });

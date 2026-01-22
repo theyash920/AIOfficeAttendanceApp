@@ -31,7 +31,11 @@ yarn-error.*
 *.pem
 
 # local env files
+.env
 .env*.local
+.env.development.local
+.env.test.local
+.env.production.local
 
 # typescript
 *.tsbuildinfo
@@ -41,3 +45,15 @@ app-example
 # generated native folders
 /ios
 /android
+
+# coverage
+coverage/
+
+# logs
+*.log
+
+# vscode
+.vscode/
+
+# system
+Thumbs.db

@@ -1,20 +1,35 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, StyleSheet, Dimensions } from 'react-native';
 
-export const FaceScanOverlay = () => {
+const { width, height } = Dimensions.get('window');
+
+export default function FaceScanOverlay() {
   return (
     <View style={styles.container}>
-      <Text>Face Scan Overlay</Text>
+      {/* Semi-transparent background with a clear hole in the middle */}
+      <View style={styles.overlayInner}>
+        <View style={styles.faceCutout} />
+      </View>
     </View>
   );
-};
+}
 
 const styles = StyleSheet.create({
   container: {
-    padding: 20,
-    alignItems: 'center',
+    ...StyleSheet.absoluteFillObject,
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'blue',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.5)', 
   },
+  overlayInner: {
+    width: width * 0.7,
+    height: width * 0.7,
+    borderRadius: width * 0.35,
+    borderWidth: 3,
+    borderColor: '#00FF00', // Green frame for high confidence
+    backgroundColor: 'transparent',
+  },
+  faceCutout: {
+    flex: 1,
+  }
 });
