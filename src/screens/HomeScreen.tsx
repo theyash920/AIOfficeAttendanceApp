@@ -1,7 +1,10 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView } from 'react-native';
 
-export default function HomeScreen({ navigation }: any) {
+export default function HomeScreen({ navigation, route }: any) {
+  const userId = route?.params?.userId as string | undefined;
+  const officeId = route?.params?.officeId as string | undefined;
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
@@ -12,7 +15,7 @@ export default function HomeScreen({ navigation }: any) {
       <View style={styles.content}>
         <TouchableOpacity 
           style={styles.mainButton} 
-          onPress={() => navigation.navigate('Verification')}
+          onPress={() => navigation.navigate('Verification', { userId, officeId })}
         >
           <Text style={styles.buttonText}>Check-In Now</Text>
         </TouchableOpacity>

@@ -1,8 +1,13 @@
 import 'react-native-url-polyfill/auto';
 import { createClient } from '@supabase/supabase-js';
+import Constants from 'expo-constants';
 
-// Replace these with your actual Supabase Project URL and Anon Key
-const supabaseUrl = 'https://your-project-id.supabase.co';
-const supabaseAnonKey = 'your-anon-key-here';
+const supabaseUrl = Constants.expoConfig?.extra?.supabaseUrl;
+const supabaseAnonKey = Constants.expoConfig?.extra?.supabaseAnonKey;
+
+if (!supabaseUrl || !supabaseAnonKey) {
+  throw new Error('Missing Supabase URL or Anon Key. Please check your .env file and restart Expo.');
+}
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+ 

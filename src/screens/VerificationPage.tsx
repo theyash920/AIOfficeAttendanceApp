@@ -1,36 +1,81 @@
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, Text, Alert, TouchableOpacity } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
+import * as LocalAuthentication from 'expo-local-authentication';
 import FaceScanOverlay from '../components/FaceScanOverlay';
 import SignalMeter from '../components/SignalMeter';
 import SuccessAnimation from '../components/SuccessAnimation';
 import { NetworkService } from '../services/NetworkService';
+import { AttendanceAPI } from '../api/AttendanceAPI';
 
-export default function VerificationPage({ navigation }: any) {
+export default function VerificationPage({ navigation, route }: any) {
   const [isVerifying, setIsVerifying] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [wifiStrength, setWifiStrength] = useState(0);
   const [permission, requestPermission] = useCameraPermissions();
+  const userId = route?.params?.userId as string | undefined;
+  const officeId = (route?.params?.officeId as string | undefined) ?? 'OFFICE_MOCK_01';
 
   useEffect(() => {
+    NetworkService.requestPermission().then((granted: boolean) => {
+      if (!granted) {
+        Alert.alert('Permission Required', 'Location permission is needed to read Wi‑Fi details.');
+      }
+    }).catch(() => {
+      Alert.alert('Permission Error', 'Unable to request Wi‑Fi permission.');
+    });
+
     const sub = NetworkService.observeWifi((strength: number) => setWifiStrength(strength));
     return () => sub.remove();
   }, []);
 
   const triggerVerification = async () => {
+    if (!userId) {
+      Alert.alert('Missing User', 'Please login again.');
+      navigation.navigate('Login');
+      return;
+    }
+
     if (wifiStrength < 70) {
-      Alert.alert("Weak Signal", "Please move closer to the office gate.");
+      Alert.alert('Weak Signal', 'Please move closer to the office gate.');
+      return;
+    }
+
+    const ssid = await NetworkService.getCurrentSSID();
+    if (ssid !== 'Office_WiFi_Mock') {
+      Alert.alert('Wrong Network', 'Please connect to the office Wi‑Fi (mock).');
+      return;
+    }
+
+    const hasHardware = await LocalAuthentication.hasHardwareAsync();
+    const isEnrolled = await LocalAuthentication.isEnrolledAsync();
+    if (!hasHardware || !isEnrolled) {
+      Alert.alert('Biometrics Unavailable', 'No biometrics configured on this device.');
       return;
     }
 
     setIsVerifying(true);
-    // Simulating the Face ID + Backend check
-    setTimeout(() => {
-      setIsVerifying(false);
+    try {
+      const result = await LocalAuthentication.authenticateAsync({
+        promptMessage: 'Confirm your presence',
+        cancelLabel: 'Cancel'
+      });
+
+      if (!result.success) {
+        Alert.alert('Verification Failed', 'Biometric check was not successful.');
+        return;
+      }
+
+      const confidence = Math.max(70, Math.min(100, wifiStrength));
+      await AttendanceAPI.logAttendance(userId, officeId ?? 'OFFICE_MOCK_01', confidence);
+
       setIsSuccess(true);
-      // Auto-return home after success
-      setTimeout(() => navigation.navigate('Home'), 3000);
-    }, 2500);
+      setTimeout(() => navigation.navigate('Home', { userId, officeId }), 2500);
+    } catch (e: any) {
+      Alert.alert('Error', e?.message ?? 'Unable to verify attendance.');
+    } finally {
+      setIsVerifying(false);
+    }
   };
 
   if (!permission) {
