@@ -54,12 +54,25 @@ export const AuthService = {
     await this.signIn(email, pass);
     const user = await this.getCurrentUser();
 
-    const { error: upsertError } = await supabase
+    // First check if employee exists
+    const { data: existingEmployee } = await supabase
       .from('employees')
-      .upsert({ id: user.id, office_id: DEFAULT_OFFICE_ID }, { onConflict: 'id' });
+      .select('id, full_name, face_embedding, office_id')
+      .eq('id', user.id)
+      .single();
 
-    if (upsertError) throw upsertError;
+    // Only create employee record if it doesn't exist (don't overwrite full_name)
+    if (!existingEmployee) {
+      // Get full_name from auth metadata if available
+      const fullName = user.user_metadata?.full_name || null;
+      const { error: insertError } = await supabase
+        .from('employees')
+        .insert({ id: user.id, full_name: fullName, office_id: DEFAULT_OFFICE_ID });
 
+      if (insertError) throw insertError;
+    }
+
+    // Re-fetch employee data
     const { data, error } = await supabase
       .from('employees')
       .select('id, full_name, face_embedding, office_id')
@@ -70,13 +83,14 @@ export const AuthService = {
 
     const employee = data as EmployeeRow;
     const officeId = employee.office_id ?? DEFAULT_OFFICE_ID;
+    const userName = employee.full_name ?? undefined;
 
     if (!employee.face_embedding) {
-      navigation.navigate('Onboarding', { userId: user.id, officeId });
+      navigation.navigate('Onboarding', { userId: user.id, officeId, userName });
       return;
     }
 
-    navigation.navigate('Home', { userId: user.id, officeId });
+    navigation.navigate('Home', { userId: user.id, officeId, userName });
   },
 
   async handleSignup(email: string, password: string, fullName: string, navigation: any) {
@@ -95,6 +109,11 @@ export const AuthService = {
     if (insertError) throw new Error(insertError.message);
 
     // Navigate to onboarding for face registration
-    navigation.navigate('Onboarding', { userId: user.id, officeId: DEFAULT_OFFICE_ID });
+    navigation.navigate('Onboarding', { userId: user.id, officeId: DEFAULT_OFFICE_ID, userName: fullName });
+  },
+
+  async signOut() {
+    const { error } = await supabase.auth.signOut();
+    if (error) throw new Error(error.message);
   }
 };
