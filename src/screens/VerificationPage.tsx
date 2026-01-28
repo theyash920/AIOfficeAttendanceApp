@@ -64,11 +64,12 @@ export default function VerificationPage({ navigation, route }: any) {
   const isOfficeWifi = currentBSSID === OfficeSignatures.BSSID.toUpperCase();
 
   const triggerVerification = async () => {
-    // Check BSSID first
+    // STRICT BSSID CHECK - Must be on office WiFi to verify
     if (!isOfficeWifi) {
       Alert.alert(
-        'Wrong Network',
-        'You must be connected to the office WiFi to mark attendance. Please connect to the office network and try again.'
+        '📶 Connect to Office WiFi',
+        'You must be connected to the office WiFi network to mark attendance.\n\nPlease connect to the office WiFi and try again.',
+        [{ text: 'OK', style: 'default' }]
       );
       return;
     }
@@ -101,9 +102,18 @@ export default function VerificationPage({ navigation, route }: any) {
         } else if (result.action === 'face_error') {
           Alert.alert('Face Detection Failed', result.message);
         } else if (result.action === 'face_not_found') {
-          Alert.alert('Face Not Found', result.message);
+          // Show friendly "Not in Office" popup for face not recognized
+          Alert.alert(
+            '📍 Not in Office',
+            'Verification failed. Please make sure you are in the office and connected to the office WiFi.\n\nIf you are a new employee, please register first.',
+            [{ text: 'OK', style: 'default' }]
+          );
         } else {
-          Alert.alert('Error', result.message || 'Unknown error occurred.');
+          Alert.alert(
+            '📍 Not in Office',
+            'Verification failed. Please make sure you are in the office and connected to the office WiFi.',
+            [{ text: 'OK', style: 'default' }]
+          );
         }
         return;
       }
@@ -130,37 +140,12 @@ export default function VerificationPage({ navigation, route }: any) {
     } catch (e: any) {
       console.error('[VerificationPage] Error:', e);
 
-      // Check if it's a network error or backend error indicating user is outside office
-      const errorMessage = e?.message?.toLowerCase() || '';
-
-      // Network errors (can't reach backend server)
-      const isNetworkError =
-        errorMessage.includes('network request failed') ||
-        errorMessage.includes('network error') ||
-        errorMessage.includes('failed to fetch') ||
-        errorMessage.includes('connection refused') ||
-        errorMessage.includes('timeout') ||
-        errorMessage.includes('unable to resolve host') ||
-        errorMessage.includes('econnrefused') ||
-        (e?.name === 'TypeError' && errorMessage.includes('network'));
-
-      // Backend errors that typically occur when user is outside office
-      // (face not matching due to different environment/lighting, or DB constraint errors)
-      const isBackendError =
-        errorMessage.includes('backend error: 500') ||
-        errorMessage.includes('foreign key constraint') ||
-        errorMessage.includes('violates foreign key') ||
-        errorMessage.includes('not present in table');
-
-      if (isNetworkError || isBackendError) {
-        Alert.alert(
-          '📍 Not in Office',
-          'You are not in the office or the verification failed.\n\nPlease go to the office, connect to the office Wi-Fi, and try again.',
-          [{ text: 'OK', style: 'default' }]
-        );
-      } else {
-        Alert.alert('Error', e?.message ?? 'Unable to verify attendance.');
-      }
+      // All errors (network, backend, etc.) show the same friendly popup
+      Alert.alert(
+        '📍 Not in Office',
+        'You are not connected to the office network.\n\nPlease go to the office, connect to the office WiFi, and try again.',
+        [{ text: 'OK', style: 'default' }]
+      );
     } finally {
       setIsVerifying(false);
     }

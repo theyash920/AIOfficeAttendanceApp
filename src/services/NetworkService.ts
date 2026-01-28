@@ -12,6 +12,13 @@ try {
 }
 
 export const NetworkService = {
+  /**
+   * Returns true if using mock WiFi data (Expo Go), false if using real native module
+   */
+  isUsingMockData(): boolean {
+    return !isNativeModuleAvailable;
+  },
+
   async requestPermission(): Promise<boolean> {
     if (!isNativeModuleAvailable) {
       // Mock: Always return true in Expo Go
