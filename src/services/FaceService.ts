@@ -65,7 +65,7 @@ export const FaceService = {
       return result;
 
     } catch (err: any) {
-      console.error('[FaceService] Smart attendance exception:', err);
+      console.log('[FaceService] Smart attendance exception:', err?.message || err);
       throw err;
     }
   },
@@ -127,7 +127,7 @@ export const FaceService = {
       return result;
 
     } catch (err: any) {
-      console.error('[FaceService] Smart checkout exception:', err);
+      console.log('[FaceService] Smart checkout exception:', err?.message || err);
       throw err;
     }
   },
@@ -170,7 +170,7 @@ export const FaceService = {
       return true;
 
     } catch (err: any) {
-      console.error('[FaceService] Upload exception:', err);
+      console.log('[FaceService] Upload exception:', err?.message || err);
       throw err;
     }
   },
@@ -233,7 +233,7 @@ export const FaceService = {
       return result;
 
     } catch (err: any) {
-      console.error('[FaceService] Verification exception:', err);
+      console.log('[FaceService] Verification exception:', err?.message || err);
       throw err;
     }
   },

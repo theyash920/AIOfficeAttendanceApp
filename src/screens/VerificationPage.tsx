@@ -138,7 +138,7 @@ export default function VerificationPage({ navigation, route }: any) {
         isCheckedIn: !isCheckout // false after checkout, true after check-in
       }), 4000);
     } catch (e: any) {
-      console.error('[VerificationPage] Error:', e);
+      console.log('[VerificationPage] Error:', e?.message || e);
 
       // All errors (network, backend, etc.) show the same friendly popup
       Alert.alert(
