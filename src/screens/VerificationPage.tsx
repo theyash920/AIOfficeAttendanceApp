@@ -6,6 +6,7 @@ import SignalMeter from '../components/SignalMeter';
 import SuccessAnimation from '../components/SuccessAnimation';
 import { NetworkService } from '../services/NetworkService';
 import { FaceService } from '../services/FaceService';
+import { OfficeSignatures } from '../constants/OfficeSignatures';
 
 // WiFi threshold must match backend (80% - room strength)
 const WIFI_THRESHOLD = 80;
@@ -14,6 +15,7 @@ export default function VerificationPage({ navigation, route }: any) {
   const [isVerifying, setIsVerifying] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [wifiStrength, setWifiStrength] = useState(0);
+  const [currentBSSID, setCurrentBSSID] = useState<string>('');
   const [permission, requestPermission] = useCameraPermissions();
   const cameraRef = useRef<CameraView>(null);
   const officeId = (route?.params?.officeId as string | undefined) ?? 'OFFICE_MOCK_01';
@@ -30,7 +32,19 @@ export default function VerificationPage({ navigation, route }: any) {
     });
 
     const sub = NetworkService.observeWifi((strength: number) => setWifiStrength(strength));
-    return () => sub.remove();
+
+    // Check BSSID periodically
+    const checkBSSID = async () => {
+      const bssid = await NetworkService.getCurrentBSSID();
+      setCurrentBSSID(bssid.toUpperCase());
+    };
+    checkBSSID();
+    const bssidInterval = setInterval(checkBSSID, 3000);
+
+    return () => {
+      sub.remove();
+      clearInterval(bssidInterval);
+    };
   }, []);
 
   const [attendanceDetails, setAttendanceDetails] = useState<{
@@ -46,7 +60,19 @@ export default function VerificationPage({ navigation, route }: any) {
     isCheckout?: boolean;
   } | null>(null);
 
+  // Check if connected to office WiFi
+  const isOfficeWifi = currentBSSID === OfficeSignatures.BSSID.toUpperCase();
+
   const triggerVerification = async () => {
+    // Check BSSID first
+    if (!isOfficeWifi) {
+      Alert.alert(
+        'Wrong Network',
+        'You must be connected to the office WiFi to mark attendance. Please connect to the office network and try again.'
+      );
+      return;
+    }
+
     if (wifiStrength < WIFI_THRESHOLD) {
       Alert.alert(
         'Weak Signal',
@@ -103,7 +129,38 @@ export default function VerificationPage({ navigation, route }: any) {
       }), 4000);
     } catch (e: any) {
       console.error('[VerificationPage] Error:', e);
-      Alert.alert('Error', e?.message ?? 'Unable to verify attendance.');
+
+      // Check if it's a network error or backend error indicating user is outside office
+      const errorMessage = e?.message?.toLowerCase() || '';
+
+      // Network errors (can't reach backend server)
+      const isNetworkError =
+        errorMessage.includes('network request failed') ||
+        errorMessage.includes('network error') ||
+        errorMessage.includes('failed to fetch') ||
+        errorMessage.includes('connection refused') ||
+        errorMessage.includes('timeout') ||
+        errorMessage.includes('unable to resolve host') ||
+        errorMessage.includes('econnrefused') ||
+        (e?.name === 'TypeError' && errorMessage.includes('network'));
+
+      // Backend errors that typically occur when user is outside office
+      // (face not matching due to different environment/lighting, or DB constraint errors)
+      const isBackendError =
+        errorMessage.includes('backend error: 500') ||
+        errorMessage.includes('foreign key constraint') ||
+        errorMessage.includes('violates foreign key') ||
+        errorMessage.includes('not present in table');
+
+      if (isNetworkError || isBackendError) {
+        Alert.alert(
+          '📍 Not in Office',
+          'You are not in the office or the verification failed.\n\nPlease go to the office, connect to the office Wi-Fi, and try again.',
+          [{ text: 'OK', style: 'default' }]
+        );
+      } else {
+        Alert.alert('Error', e?.message ?? 'Unable to verify attendance.');
+      }
     } finally {
       setIsVerifying(false);
     }
@@ -133,18 +190,25 @@ export default function VerificationPage({ navigation, route }: any) {
           <View style={styles.uiLayer}>
             <SignalMeter strength={wifiStrength} />
             <Text style={styles.instruction}>
-              {wifiStrength < WIFI_THRESHOLD
-                ? `WiFi: ${wifiStrength}% (Need ${WIFI_THRESHOLD}%)`
-                : isCheckout ? 'Ready to scan face for checkout' : 'Ready to scan face'}
+              {!isOfficeWifi
+                ? '❌ Not connected to office WiFi'
+                : wifiStrength < WIFI_THRESHOLD
+                  ? `WiFi: ${wifiStrength}% (Need ${WIFI_THRESHOLD}%)`
+                  : isCheckout ? '✅ Ready to scan face for checkout' : '✅ Ready to scan face'}
             </Text>
+            {!isOfficeWifi && (
+              <Text style={styles.wifiHint}>
+                Connect to the office network to continue
+              </Text>
+            )}
             <TouchableOpacity
               style={[
                 styles.actionBtn,
-                wifiStrength < WIFI_THRESHOLD && styles.actionBtnDisabled,
-                isCheckout && styles.checkoutBtn
+                (!isOfficeWifi || wifiStrength < WIFI_THRESHOLD) && styles.actionBtnDisabled,
+                isCheckout && isOfficeWifi && wifiStrength >= WIFI_THRESHOLD && styles.checkoutBtn
               ]}
               onPress={triggerVerification}
-              disabled={isVerifying || wifiStrength < WIFI_THRESHOLD}
+              disabled={isVerifying || !isOfficeWifi || wifiStrength < WIFI_THRESHOLD}
             >
               <Text style={styles.btnText}>
                 {isVerifying ? "Verifying..." : isCheckout ? "Confirm Checkout" : "Confirm Presence"}
@@ -200,5 +264,6 @@ const styles = StyleSheet.create({
   successContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#000' },
   detailsContainer: { marginTop: 20, alignItems: 'center' },
   detailsText: { color: '#fff', fontSize: 16, marginVertical: 4, fontWeight: '500' },
-  idText: { color: '#888', fontSize: 12, marginTop: 10 }
+  idText: { color: '#888', fontSize: 12, marginTop: 10 },
+  wifiHint: { color: '#FF6B6B', fontSize: 14, marginBottom: 15, textAlign: 'center' as const }
 });

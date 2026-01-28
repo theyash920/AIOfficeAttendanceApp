@@ -17,7 +17,7 @@ export const NetworkService = {
       // Mock: Always return true in Expo Go
       return true;
     }
-    
+
     if (Platform.OS === 'android') {
       const { PermissionsAndroid } = require('react-native');
       const granted = await PermissionsAndroid.request(
@@ -26,14 +26,14 @@ export const NetworkService = {
       return granted === PermissionsAndroid.RESULTS.GRANTED;
     }
     return true;
-    },
+  },
 
   async getWifiStrength(): Promise<number> {
     if (!isNativeModuleAvailable) {
       // Mock: Return a simulated strong signal for testing in Expo Go
       return -45; // Strong signal in dBm
     }
-    
+
     try {
       const rssi = await WifiManager.getCurrentSignalStrength();
       return rssi;
@@ -48,11 +48,25 @@ export const NetworkService = {
       // Mock: Return a fake SSID for testing
       return 'Office_WiFi_Mock';
     }
-    
+
     try {
       return await WifiManager.getCurrentWifiSSID();
     } catch (error) {
       console.error("WiFi SSID Error:", error);
+      return 'Unknown';
+    }
+  },
+
+  async getCurrentBSSID(): Promise<string> {
+    if (!isNativeModuleAvailable) {
+      // Mock: Return the office BSSID for testing in Expo Go
+      return '14:D4:24:12:B5:6F';
+    }
+
+    try {
+      return await WifiManager.getBSSID();
+    } catch (error) {
+      console.error("WiFi BSSID Error:", error);
       return 'Unknown';
     }
   },
