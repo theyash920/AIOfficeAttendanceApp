@@ -257,6 +257,10 @@ export default function VerificationPage({ navigation, route }: any) {
                 Connect to the office network to continue
               </Text>
             )}
+            {/* Debug info - remove after testing */}
+            <Text style={styles.debugText}>
+              BSSID: {currentBSSID || 'None'} | Expected: {OfficeSignatures.BSSID}
+            </Text>
             <TouchableOpacity
               style={[
                 styles.actionBtn,
@@ -321,5 +325,6 @@ const styles = StyleSheet.create({
   detailsContainer: { marginTop: 20, alignItems: 'center' },
   detailsText: { color: '#fff', fontSize: 16, marginVertical: 4, fontWeight: '500' },
   idText: { color: '#888', fontSize: 12, marginTop: 10 },
-  wifiHint: { color: '#FF6B6B', fontSize: 14, marginBottom: 15, textAlign: 'center' as const }
+  wifiHint: { color: '#FF6B6B', fontSize: 14, marginBottom: 15, textAlign: 'center' as const },
+  debugText: { color: '#888', fontSize: 10, marginBottom: 10, textAlign: 'center' as const }
 });
