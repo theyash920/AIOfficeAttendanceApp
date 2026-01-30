@@ -125,7 +125,7 @@ export const NetworkService = {
 
     if (!isNativeModuleAvailable) {
       // Mock: Return the office BSSID for testing in Expo Go
-      return '14:D4:24:12:B5:6F';
+      return 'A0:91:CA:9B:76:AA';
     }
 
     try {
