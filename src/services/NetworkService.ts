@@ -1,4 +1,5 @@
-import { Platform } from 'react-native';
+import { Platform, Alert, Linking } from 'react-native';
+import * as Location from 'expo-location';
 
 // Check if we're running in Expo Go (native modules won't be available)
 let WifiManager: any = null;
@@ -6,9 +7,11 @@ let isNativeModuleAvailable = false;
 
 try {
   WifiManager = require('react-native-wifi-reborn').default;
-  isNativeModuleAvailable = WifiManager !== null;
-} catch (e) {
-  console.log('WiFi native module not available, using mock data');
+  isNativeModuleAvailable = WifiManager !== null && WifiManager !== undefined;
+  console.log('[NetworkService] WiFi module loaded:', isNativeModuleAvailable);
+  console.log('[NetworkService] WifiManager type:', typeof WifiManager);
+} catch (e: any) {
+  console.log('[NetworkService] WiFi native module not available:', e?.message || e);
 }
 
 export const NetworkService = {
@@ -16,21 +19,69 @@ export const NetworkService = {
    * Returns true if using mock WiFi data (Expo Go), false if using real native module
    */
   isUsingMockData(): boolean {
+    console.log('[NetworkService] isUsingMockData:', !isNativeModuleAvailable);
     return !isNativeModuleAvailable;
   },
 
   async requestPermission(): Promise<boolean> {
+    console.log('[NetworkService] Requesting permission...');
+    console.log('[NetworkService] Native module available:', isNativeModuleAvailable);
+
     if (!isNativeModuleAvailable) {
       // Mock: Always return true in Expo Go
+      console.log('[NetworkService] Mock mode - returning true for permission');
       return true;
     }
 
     if (Platform.OS === 'android') {
-      const { PermissionsAndroid } = require('react-native');
-      const granted = await PermissionsAndroid.request(
-        PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION
-      );
-      return granted === PermissionsAndroid.RESULTS.GRANTED;
+      try {
+        // Use expo-location for permissions since it's properly configured as an Expo plugin
+        const { status: existingStatus } = await Location.getForegroundPermissionsAsync();
+        console.log('[NetworkService] Existing location permission status:', existingStatus);
+
+        if (existingStatus === 'granted') {
+          console.log('[NetworkService] Location permission already granted');
+          return true;
+        }
+
+        // Request permission using expo-location
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        console.log('[NetworkService] Location permission request result:', status);
+
+        if (status !== 'granted') {
+          // Show alert to guide user to settings
+          Alert.alert(
+            'Location Permission Required',
+            'WiFi detection requires location permission on Android. This is used to verify you are connected to the office network. Please enable it in Settings.',
+            [
+              { text: 'Cancel', style: 'cancel' },
+              { text: 'Open Settings', onPress: () => Linking.openSettings() }
+            ]
+          );
+          return false;
+        }
+
+        // Check if location services are enabled
+        const isLocationEnabled = await Location.hasServicesEnabledAsync();
+        console.log('[NetworkService] Location services enabled:', isLocationEnabled);
+
+        if (!isLocationEnabled) {
+          Alert.alert(
+            'Location Services Required',
+            'Please turn on Location Services to detect WiFi network.',
+            [
+              { text: 'Cancel', style: 'cancel' },
+              { text: 'Open Settings', onPress: () => Linking.openSettings() }
+            ]
+          );
+          return false;
+        }
+
+        return true;
+      } catch (error: any) {
+        console.error('[NetworkService] Permission request error:', error?.message || error);
+        return false;
+      }
     }
     return true;
   },
@@ -43,9 +94,10 @@ export const NetworkService = {
 
     try {
       const rssi = await WifiManager.getCurrentSignalStrength();
+      console.log('[NetworkService] WiFi strength (RSSI):', rssi);
       return rssi;
-    } catch (error) {
-      console.error("WiFi Strength Error:", error);
+    } catch (error: any) {
+      console.error('[NetworkService] WiFi Strength Error:', error?.message || error);
       return -100;
     }
   },
@@ -53,28 +105,38 @@ export const NetworkService = {
   async getCurrentSSID(): Promise<string> {
     if (!isNativeModuleAvailable) {
       // Mock: Return a fake SSID for testing
+      console.log('[NetworkService] Mock mode - returning mock SSID');
       return 'Office_WiFi_Mock';
     }
 
     try {
-      return await WifiManager.getCurrentWifiSSID();
-    } catch (error) {
-      console.error("WiFi SSID Error:", error);
-      return 'Unknown';
+      const ssid = await WifiManager.getCurrentWifiSSID();
+      console.log('[NetworkService] Current SSID:', ssid);
+      return ssid || 'Unknown';
+    } catch (error: any) {
+      console.error('[NetworkService] WiFi SSID Error:', error?.message || error);
+      // Return more specific error info
+      return 'SSID_Error';
     }
   },
 
   async getCurrentBSSID(): Promise<string> {
+    console.log('[NetworkService] getCurrentBSSID called, native available:', isNativeModuleAvailable);
+
     if (!isNativeModuleAvailable) {
       // Mock: Return the office BSSID for testing in Expo Go
       return '14:D4:24:12:B5:6F';
     }
 
     try {
-      return await WifiManager.getBSSID();
-    } catch (error) {
-      console.error("WiFi BSSID Error:", error);
-      return 'Unknown';
+      console.log('[NetworkService] Calling WifiManager.getBSSID()...');
+      const bssid = await WifiManager.getBSSID();
+      console.log('[NetworkService] Current BSSID result:', bssid);
+      return bssid || 'Unknown';
+    } catch (error: any) {
+      console.error('[NetworkService] WiFi BSSID Error:', error?.message || error);
+      // Return error indicator instead of Unknown
+      return 'BSSID_Error';
     }
   },
 
@@ -110,13 +172,15 @@ export const NetworkService = {
       };
     }
 
+    console.log('[NetworkService] Starting WiFi observation with native module');
+
     const pollInterval = setInterval(async () => {
       try {
         const rssi = await this.getWifiStrength();
         const percentage = rssiToPercentage(rssi);
         callback(percentage);
       } catch (error) {
-        console.error("WiFi observation error:", error);
+        console.error('[NetworkService] WiFi observation error:', error);
         callback(0);
       }
     }, 2000);
@@ -133,3 +197,4 @@ export const NetworkService = {
     };
   }
 };
+

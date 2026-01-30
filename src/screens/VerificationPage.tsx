@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, StyleSheet, Text, Alert, TouchableOpacity } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
+import * as Location from 'expo-location';
 import FaceScanOverlay from '../components/FaceScanOverlay';
 import SignalMeter from '../components/SignalMeter';
 import SuccessAnimation from '../components/SuccessAnimation';
@@ -22,28 +23,47 @@ export default function VerificationPage({ navigation, route }: any) {
   const userName = route?.params?.userName as string | undefined;
   const isCheckout = route?.params?.isCheckout as boolean | undefined;
 
+  const [isPermissionReady, setPermissionReady] = useState(false);
+
   useEffect(() => {
-    NetworkService.requestPermission().then((granted: boolean) => {
+    let wifiSub: { remove: () => void } | null = null;
+    let bssidInterval: ReturnType<typeof setInterval> | null = null;
+
+    const initWifi = async () => {
+      // Request location permission first (required for WiFi access on Android)
+      const granted = await NetworkService.requestPermission();
+      console.log('[VerificationPage] Permission granted:', granted);
+
       if (!granted) {
-        Alert.alert('Permission Required', 'Location permission is needed to read Wi‑Fi details.');
+        Alert.alert(
+          'Permission Required',
+          'Location permission is needed to detect WiFi. Please grant permission in Settings.',
+          [{ text: 'OK' }]
+        );
+        setPermissionReady(true);
+        return;
       }
-    }).catch(() => {
-      Alert.alert('Permission Error', 'Unable to request Wi‑Fi permission.');
-    });
 
-    const sub = NetworkService.observeWifi((strength: number) => setWifiStrength(strength));
+      // Start WiFi observation only after permission is granted
+      wifiSub = NetworkService.observeWifi((strength: number) => setWifiStrength(strength));
 
-    // Check BSSID periodically
-    const checkBSSID = async () => {
-      const bssid = await NetworkService.getCurrentBSSID();
-      setCurrentBSSID(bssid.toUpperCase());
+      // Check BSSID periodically
+      const checkBSSID = async () => {
+        const bssid = await NetworkService.getCurrentBSSID();
+        console.log('[VerificationPage] BSSID check result:', bssid);
+        setCurrentBSSID(bssid.toUpperCase());
+      };
+
+      await checkBSSID();
+      bssidInterval = setInterval(checkBSSID, 3000);
+      setPermissionReady(true);
     };
-    checkBSSID();
-    const bssidInterval = setInterval(checkBSSID, 3000);
+
+    initWifi();
 
     return () => {
-      sub.remove();
-      clearInterval(bssidInterval);
+      if (wifiSub) wifiSub.remove();
+      if (bssidInterval) clearInterval(bssidInterval);
     };
   }, []);
 
@@ -57,6 +77,7 @@ export default function VerificationPage({ navigation, route }: any) {
       latitude: number;
       longitude: number;
     };
+    placeName?: string;
     isCheckout?: boolean;
   } | null>(null);
 
@@ -120,6 +141,55 @@ export default function VerificationPage({ navigation, route }: any) {
 
       // Success! (Either registered new user, marked attendance, or checkout)
       setIsSuccess(true);
+
+      // Reverse geocode to get precise place name
+      let placeName = '';
+      if (result.location) {
+        try {
+          const [address] = await Location.reverseGeocodeAsync({
+            latitude: result.location.latitude,
+            longitude: result.location.longitude
+          });
+          console.log('[VerificationPage] Reverse geocode result:', JSON.stringify(address, null, 2));
+
+          if (address) {
+            // Build a precise address from available fields
+            const addressParts: string[] = [];
+
+            // Add building/POI name if available
+            if (address.name && address.name !== address.street) {
+              addressParts.push(address.name);
+            }
+
+            // Add street with number if available
+            if (address.streetNumber && address.street) {
+              addressParts.push(`${address.streetNumber} ${address.street}`);
+            } else if (address.street) {
+              addressParts.push(address.street);
+            }
+
+            // Add subregion/district/neighborhood
+            if (address.subregion) {
+              addressParts.push(address.subregion);
+            } else if (address.district) {
+              addressParts.push(address.district);
+            }
+
+            // Add city
+            if (address.city) {
+              addressParts.push(address.city);
+            }
+
+            // Create the display string - show up to 3 components for readability
+            placeName = addressParts.slice(0, 3).join(', ') ||
+              `${result.location.latitude.toFixed(6)}, ${result.location.longitude.toFixed(6)}`;
+          }
+        } catch (geoError) {
+          console.log('[VerificationPage] Reverse geocoding failed:', geoError);
+          placeName = `${result.location.latitude.toFixed(6)}, ${result.location.longitude.toFixed(6)}`;
+        }
+      }
+
       setAttendanceDetails({
         userId: result.user_id,
         userName: result.user_name,
@@ -127,6 +197,7 @@ export default function VerificationPage({ navigation, route }: any) {
         timestamp: result.timestamp,
         message: result.message,
         location: result.location,
+        placeName,
         isCheckout: isCheckout
       });
 
@@ -220,9 +291,9 @@ export default function VerificationPage({ navigation, route }: any) {
               <Text style={styles.detailsText}>
                 📅 {new Date(attendanceDetails.timestamp).toLocaleDateString()}
               </Text>
-              {attendanceDetails.location && (
+              {attendanceDetails.placeName && (
                 <Text style={styles.detailsText}>
-                  📍 {attendanceDetails.location.latitude.toFixed(4)}, {attendanceDetails.location.longitude.toFixed(4)}
+                  📍 {attendanceDetails.placeName}
                 </Text>
               )}
               {attendanceDetails.userId && (
