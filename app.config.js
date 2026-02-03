@@ -4,7 +4,7 @@ export default {
   expo: {
     name: "OfficeAttendanceApp",
     slug: "OfficeAttendanceApp",
-    owner: "yash92",
+    owner: "yashchopra95826",
     version: "1.0.0",
     orientation: "portrait",
     icon: "./assets/images/icon.png",
@@ -15,7 +15,7 @@ export default {
       supportsTablet: true
     },
     android: {
-      package: "com.yash92.officeattendanceapp",
+      package: "com.yashchopra95826.officeattendanceapp",
       adaptiveIcon: {
         backgroundColor: "#E6F4FE",
         foregroundImage: "./assets/images/android-icon-foreground.png",
@@ -71,7 +71,7 @@ export default {
     },
     extra: {
       eas: {
-        projectId: "060908f7-f67c-471f-827a-67f06eb293b8"
+        "projectId": "34bae9a2-678e-4dae-a566-26cff2a196d8"
       },
       supabaseUrl: process.env.SUPABASE_URL,
       supabaseAnonKey: process.env.SUPABASE_ANON_KEY

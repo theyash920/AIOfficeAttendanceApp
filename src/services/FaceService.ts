@@ -4,7 +4,7 @@ import * as Location from 'expo-location';
 
 // Use your computer's local IP address for physical device testing
 // Both phone and computer must be on the same WiFi network
-const BACKEND_URL = 'http://192.168.1.41:8000';
+const BACKEND_URL = 'http://192.168.1.41:8000';  
 
 export const FaceService = {
   /**
@@ -17,7 +17,7 @@ export const FaceService = {
     try {
       console.log('[FaceService] Smart attendance with WiFi strength:', wifiStrength);
 
-      // 1. Get current location
+      // 1. Get current location 
       let latitude = 0.0;
       let longitude = 0.0;
 
